@@ -2,6 +2,14 @@
 
 Gera automaticamente os comandos `/mira-*` no menu do OpenCode a partir dos skills instalados pelo [Mira Animator](https://github.com/sandeco/mira-animator).
 
+## Pré-requisitos
+
+- **Python 3** com o módulo `yaml` (`pyyaml`)
+  - Instalação: `pip install pyyaml` ou `pip3 install pyyaml`
+  - Python 3.11+ já inclui `yaml` como `pyyaml` — verifique com `python3 -c "import yaml"`
+- **Bash** (Linux/macOS — presente em qualquer distribuição Linux e macOS)
+- No Windows, use Git Bash ou WSL
+
 ## Instalação
 
 Após instalar o Mira em uma nova pasta, abra o OpenCode e cole este prompt na primeira mensagem:
