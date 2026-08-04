@@ -22,12 +22,13 @@ O agente acessará este README via `webfetch` e executará o procedimento descri
 
 ## O que mudou nesta versão
 
-Esta atualização substitui os scripts anteriores por versões mais seguras.
+Esta atualização substitui os scripts anteriores por versões mais seguras e corrige a leitura da `description` dos `SKILL.md`.
 
 - Não removem `opencode.json` nem `opencode.jsonc` automaticamente.
 - Criam backup quando o usuário desejar preservar arquivos existentes.
 - Pedem confirmação antes de gerar, atualizar ou remover comandos.
 - Evitam sobrescrever arquivos sem necessidade.
+- Usam `PyYAML` para ler corretamente `description: >-` e outros formatos YAML válidos.
 - Tratam melhor o caso em que já existe configuração local do OpenCode.
 
 ## Instalação segura
@@ -66,13 +67,6 @@ backup_file() {
     cp -p "$file" "$BACKUP_DIR/${base}.${TIMESTAMP}.bak"
     echo "Backup criado: $BACKUP_DIR/${base}.${TIMESTAMP}.bak"
   fi
-}
-
-normalize_desc() {
-  sed 's/^description:[[:space:]]*//' \
-  | sed 's/^"\(.*\)"$/\1/' \
-  | sed "s/^'\(.*\)'$/\1/" \
-  | sed 's/"/\\"/g'
 }
 
 confirm() {
@@ -126,27 +120,35 @@ for root in "$SKILLS_ROOT"; do
       continue
     fi
 
-    desc="$(
-      grep -m1 '^description:' "$skill_file" 2>/dev/null \
-      | normalize_desc || true
-    )"
-
-    [ -z "${desc:-}" ] && desc="Comando Mira: $skill_name"
-
     tmp_file="$(mktemp)"
-    cat > "$tmp_file" <<EOF2
-***
-description: "$desc"
+    python3 <<'PYEOF' "$skill_file" "$skill_name" "$tmp_file"
+import sys
+from pathlib import Path
+import yaml
+
+skill_file = Path(sys.argv)[3]
+skill_name = sys.argv[4]
+tmp_file = Path(sys.argv)[5]
+
+data = yaml.safe_load(skill_file.read_text(encoding="utf-8")) or {}
+desc = str(data.get("description", "")).strip() if isinstance(data, dict) else ""
+if not desc:
+    desc = f"Comando Mira: {skill_name}"
+
+content = f"""---
+description: "{desc.replace('"', '\\"')}"
 agent: build
 model: anthropic/claude-3-5-sonnet-20241022
 ***
 
-# Comando \`$skill_name\` do Mira
+# Comando `{skill_name}` do Mira
 
-Ative este comando para carregar o skill \`$skill_name\` e siga as instruções do SKILL.md.
+Ative este comando para carregar o skill `{skill_name}` e siga as instruções do SKILL.md.
 
-/$skill_name
-EOF2
+/{skill_name}
+"""
+tmp_file.write_text(content, encoding="utf-8")
+PYEOF
 
     if [ -f "$cmd_file" ]; then
       if cmp -s "$tmp_file" "$cmd_file"; then
@@ -228,13 +230,6 @@ backup_file() {
   fi
 }
 
-normalize_desc() {
-  sed 's/^description:[[:space:]]*//' \
-  | sed 's/^"\(.*\)"$/\1/' \
-  | sed "s/^'\(.*\)'$/\1/" \
-  | sed 's/"/\\"/g'
-}
-
 confirm() {
   local prompt="$1"
   local response
@@ -272,27 +267,35 @@ for root in "$SKILLS_ROOT"; do
       continue
     fi
 
-    desc="$(
-      grep -m1 '^description:' "$skill_file" 2>/dev/null \
-      | normalize_desc || true
-    )"
-
-    [ -z "${desc:-}" ] && desc="Comando Mira: $skill_name"
-
     tmp_file="$(mktemp)"
-    cat > "$tmp_file" <<EOF2
-***
-description: "$desc"
+    python3 <<'PYEOF' "$skill_file" "$skill_name" "$tmp_file"
+import sys
+from pathlib import Path
+import yaml
+
+skill_file = Path(sys.argv)[3]
+skill_name = sys.argv[4]
+tmp_file = Path(sys.argv)[5]
+
+data = yaml.safe_load(skill_file.read_text(encoding="utf-8")) or {}
+desc = str(data.get("description", "")).strip() if isinstance(data, dict) else ""
+if not desc:
+    desc = f"Comando Mira: {skill_name}"
+
+content = f"""---
+description: "{desc.replace('"', '\\"')}"
 agent: build
 model: anthropic/claude-3-5-sonnet-20241022
 ***
 
-# Comando \`$skill_name\` do Mira
+# Comando `{skill_name}` do Mira
 
-Ative este comando para carregar o skill \`$skill_name\` e siga as instruções do SKILL.md.
+Ative este comando para carregar o skill `{skill_name}` e siga as instruções do SKILL.md.
 
-/$skill_name
-EOF2
+/{skill_name}
+"""
+tmp_file.write_text(content, encoding="utf-8")
+PYEOF
 
     if [ -f "$cmd_file" ]; then
       if cmp -s "$tmp_file" "$cmd_file"; then
@@ -398,6 +401,7 @@ Essa mudança existe porque `opencode.json` e `opencode.jsonc` são formatos vá
 - O OpenCode suporta configuração por `opencode.json` e `opencode.jsonc`, então esses arquivos devem ser preservados por padrão.
 - Os scripts desta versão criam backup em `.opencode/backups/` antes de atualizar comandos existentes.
 - A remoção de comandos órfãos na sincronização exige confirmação explícita do usuário.
+- `PyYAML` é usado para ler o frontmatter de `SKILL.md`, o que garante a extração correta de `description` mesmo quando ela usa `>-` ou outras formas válidas de YAML.
 - `skills.paths` não é necessário neste fluxo.
 - `agent: build` é usado como agente padrão neste repositório; se houver um agente específico desejado, ajuste o frontmatter conforme necessário.
 
