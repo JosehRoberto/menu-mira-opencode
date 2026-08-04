@@ -28,7 +28,8 @@ Esta atualização substitui os scripts anteriores por versões mais seguras e c
 - Criam backup quando o usuário desejar preservar arquivos existentes.
 - Pedem confirmação antes de gerar, atualizar ou remover comandos.
 - Evitam sobrescrever arquivos sem necessidade.
-- Usam `PyYAML` para ler corretamente `description: >-` e outros formatos YAML válidos.
+- Extraem apenas o frontmatter inicial do `SKILL.md` antes de aplicar `PyYAML`.
+- Lidem corretamente com `description: >-` e com `---` que apareçam no corpo do arquivo.
 - Tratam melhor o caso em que já existe configuração local do OpenCode.
 
 ## Instalação segura
@@ -79,6 +80,27 @@ confirm() {
   esac
 }
 
+extract_frontmatter() {
+  python3 - "$1" <<'PYEOF'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv)[3]
+text = path.read_text(encoding="utf-8")
+if not text.startswith("---"):
+    sys.exit(0)
+
+end = text.find("\n---", 3)
+if end == -1:
+    sys.exit(0)
+
+frontmatter = text[3:end]
+if frontmatter.startswith("\n"):
+    frontmatter = frontmatter[1:]
+print(frontmatter.rstrip("\n"))
+PYEOF
+}
+
 echo "Diretório de skills: $SKILLS_ROOT"
 echo "Diretório de comandos: $COMMANDS_DIR"
 echo
@@ -120,18 +142,27 @@ for root in "$SKILLS_ROOT"; do
       continue
     fi
 
+    frontmatter="$(extract_frontmatter "$skill_file")"
+
     tmp_file="$(mktemp)"
-    python3 <<'PYEOF' "$skill_file" "$skill_name" "$tmp_file"
+    python3 - "$skill_name" "$frontmatter" "$tmp_file" <<'PYEOF'
 import sys
 from pathlib import Path
 import yaml
 
-skill_file = Path(sys.argv)[3]
-skill_name = sys.argv[4]
+skill_name = sys.argv[3]
+frontmatter = sys.argv[4]
 tmp_file = Path(sys.argv)[5]
 
-data = yaml.safe_load(skill_file.read_text(encoding="utf-8")) or {}
-desc = str(data.get("description", "")).strip() if isinstance(data, dict) else ""
+desc = ""
+if frontmatter.strip():
+    try:
+        data = yaml.safe_load(frontmatter) or {}
+        if isinstance(data, dict):
+            desc = str(data.get("description", "")).strip()
+    except Exception:
+        pass
+
 if not desc:
     desc = f"Comando Mira: {skill_name}"
 
@@ -240,6 +271,27 @@ confirm() {
   esac
 }
 
+extract_frontmatter() {
+  python3 - "$1" <<'PYEOF'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv)[3]
+text = path.read_text(encoding="utf-8")
+if not text.startswith("---"):
+    sys.exit(0)
+
+end = text.find("\n---", 3)
+if end == -1:
+    sys.exit(0)
+
+frontmatter = text[3:end]
+if frontmatter.startswith("\n"):
+    frontmatter = frontmatter[1:]
+print(frontmatter.rstrip("\n"))
+PYEOF
+}
+
 echo "==> Sincronização segura dos comandos Mira"
 echo
 
@@ -267,18 +319,27 @@ for root in "$SKILLS_ROOT"; do
       continue
     fi
 
+    frontmatter="$(extract_frontmatter "$skill_file")"
+
     tmp_file="$(mktemp)"
-    python3 <<'PYEOF' "$skill_file" "$skill_name" "$tmp_file"
+    python3 - "$skill_name" "$frontmatter" "$tmp_file" <<'PYEOF'
 import sys
 from pathlib import Path
 import yaml
 
-skill_file = Path(sys.argv)[3]
-skill_name = sys.argv[4]
+skill_name = sys.argv[3]
+frontmatter = sys.argv[4]
 tmp_file = Path(sys.argv)[5]
 
-data = yaml.safe_load(skill_file.read_text(encoding="utf-8")) or {}
-desc = str(data.get("description", "")).strip() if isinstance(data, dict) else ""
+desc = ""
+if frontmatter.strip():
+    try:
+        data = yaml.safe_load(frontmatter) or {}
+        if isinstance(data, dict):
+            desc = str(data.get("description", "")).strip()
+    except Exception:
+        pass
+
 if not desc:
     desc = f"Comando Mira: {skill_name}"
 
@@ -401,7 +462,7 @@ Essa mudança existe porque `opencode.json` e `opencode.jsonc` são formatos vá
 - O OpenCode suporta configuração por `opencode.json` e `opencode.jsonc`, então esses arquivos devem ser preservados por padrão.
 - Os scripts desta versão criam backup em `.opencode/backups/` antes de atualizar comandos existentes.
 - A remoção de comandos órfãos na sincronização exige confirmação explícita do usuário.
-- `PyYAML` é usado para ler o frontmatter de `SKILL.md`, o que garante a extração correta de `description` mesmo quando ela usa `>-` ou outras formas válidas de YAML.
+- `PyYAML` é usado para ler apenas o frontmatter inicial de cada `SKILL.md`, o que evita erros quando o corpo do arquivo contém outro `---`.
 - `skills.paths` não é necessário neste fluxo.
 - `agent: build` é usado como agente padrão neste repositório; se houver um agente específico desejado, ajuste o frontmatter conforme necessário.
 
