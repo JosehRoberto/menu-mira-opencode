@@ -85,7 +85,7 @@ extract_frontmatter() {
 import sys
 from pathlib import Path
 
-path = Path(sys.argv)[3]
+path = Path(sys.argv[1])
 text = path.read_text(encoding="utf-8")
 if not text.startswith("---"):
     sys.exit(0)
@@ -150,9 +150,9 @@ import sys
 from pathlib import Path
 import yaml
 
-skill_name = sys.argv[3]
-frontmatter = sys.argv[4]
-tmp_file = Path(sys.argv)[5]
+skill_name = sys.argv[1]
+frontmatter = sys.argv[2]
+tmp_file = Path(sys.argv[3])
 
 desc = ""
 if frontmatter.strip():
@@ -170,7 +170,7 @@ content = f"""---
 description: "{desc.replace('"', '\\"')}"
 agent: build
 model: anthropic/claude-3-5-sonnet-20241022
-***
+---
 
 # Comando `{skill_name}` do Mira
 
@@ -276,7 +276,7 @@ extract_frontmatter() {
 import sys
 from pathlib import Path
 
-path = Path(sys.argv)[3]
+path = Path(sys.argv[1])
 text = path.read_text(encoding="utf-8")
 if not text.startswith("---"):
     sys.exit(0)
@@ -327,9 +327,9 @@ import sys
 from pathlib import Path
 import yaml
 
-skill_name = sys.argv[3]
-frontmatter = sys.argv[4]
-tmp_file = Path(sys.argv)[5]
+skill_name = sys.argv[1]
+frontmatter = sys.argv[2]
+tmp_file = Path(sys.argv[3])
 
 desc = ""
 if frontmatter.strip():
@@ -347,7 +347,7 @@ content = f"""---
 description: "{desc.replace('"', '\\"')}"
 agent: build
 model: anthropic/claude-3-5-sonnet-20241022
-***
+---
 
 # Comando `{skill_name}` do Mira
 
