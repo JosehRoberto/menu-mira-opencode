@@ -169,7 +169,6 @@ if not desc:
 content = f"""---
 description: "{desc.replace('"', '\\"')}"
 agent: build
-model: anthropic/claude-3-5-sonnet-20241022
 ---
 
 # Comando `{skill_name}` do Mira
@@ -346,7 +345,6 @@ if not desc:
 content = f"""---
 description: "{desc.replace('"', '\\"')}"
 agent: build
-model: anthropic/claude-3-5-sonnet-20241022
 ---
 
 # Comando `{skill_name}` do Mira
