@@ -472,4 +472,4 @@ Essa mudança existe porque `opencode.json` e `opencode.jsonc` são formatos vá
 
 ## Licença
 
-MIT
+MIT 
