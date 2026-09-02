@@ -170,6 +170,7 @@ content = f"""---
 description: "{desc.replace('"', '\\"')}"
 agent: build
 model: anthropic/claude-3-5-sonnet-20241022
+
 ---
 
 # Comando `{skill_name}` do Mira
@@ -347,6 +348,7 @@ content = f"""---
 description: "{desc.replace('"', '\\"')}"
 agent: build
 model: anthropic/claude-3-5-sonnet-20241022
+
 ---
 
 # Comando `{skill_name}` do Mira
@@ -474,4 +476,4 @@ Essa mudança existe porque `opencode.json` e `opencode.jsonc` são formatos vá
 
 ## Licença
 
-MIT
+MIT 
