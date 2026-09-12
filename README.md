@@ -14,9 +14,7 @@ Gera automaticamente os comandos `/mira-*` no menu do OpenCode a partir dos skil
 
 Após instalar o Mira em uma nova pasta, abra o OpenCode e cole este prompt na primeira mensagem:
 
-```markdown
-Execute o procedimento descrito em https://github.com/JosehRoberto/menu-mira-opencode para instalar os comandos Mira no menu do OpenCode com segurança, preservando qualquer configuração existente do OpenCode.
-```
+> Execute o procedimento descrito em https://github.com/JosehRoberto/menu-mira-opencode para instalar os comandos Mira no menu do OpenCode com segurança, preservando qualquer configuração existente do OpenCode.
 
 O agente acessará este README via `webfetch` e executará o procedimento descrito aqui.
 
