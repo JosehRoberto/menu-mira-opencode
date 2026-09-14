@@ -227,7 +227,9 @@ Depois feche e reabra o OpenCode.
 
 Quando o Mira for atualizado com novos skills, abra o OpenCode e cole este prompt:
 
-> Sincronize os comandos Mira no menu do OpenCode conforme o procedimento seguro em https://github.com/JosehRoberto/menu-mira-opencode, preservando comandos existentes, criando backups e pedindo confirmação antes de remover comandos órfãos.
+```text
+Sincronize os comandos Mira no menu do OpenCode conforme o procedimento seguro em https://github.com/JosehRoberto/menu-mira-opencode, preservando comandos existentes, criando backups e pedindo confirmação antes de remover comandos órfãos.
+```
 
 O script abaixo cria comandos novos, atualiza comandos alterados com backup, preserva `opencode.json` e pergunta antes de remover comandos órfãos.
 
