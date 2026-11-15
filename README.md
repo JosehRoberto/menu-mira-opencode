@@ -2,422 +2,139 @@
 
 Gera automaticamente os comandos `/mira-*` no menu do OpenCode a partir dos skills instalados pelo [Mira Animator](https://github.com/sandeco/mira-animator).
 
+A partir da versão 1, a lógica deixou de ser um script shell embutido no README e passou a ser um **núcleo Python único e portátil** (`menu-mira.py`), com wrappers finos por sistema operacional. Isso torna a execução **determinística** em Linux, macOS e Windows.
+
+> **Variante Mira-only.** Este repositório gera apenas os comandos `mira-*`. Se você instala o Antares (que traz o Mira junto), use [`menu-antares-opencode`](https://github.com/JosehRoberto/menu-antares-opencode), que cobre `antares-*` e `mira-*` no mesmo script.
+
 ## Pré-requisitos
 
-- **Python 3** com o módulo `pyyaml`.
-  - Instalação: `pip install pyyaml` ou `pip3 install pyyaml`.
-  - Verificação: `python3 -c "import yaml"`.
-- **Bash** (Linux/macOS).
-- No Windows, use Git Bash ou WSL.
+- **Python 3** com o módulo **PyYAML**.
+- **Bash** (Linux/macOS) ou **PowerShell** (Windows 10/11).
+- **git** (para o fluxo via prompt ou clonagem).
+
+### Instalar o PyYAML por sistema
+
+| Sistema | Comando |
+|---|---|
+| Ubuntu / Debian / Mint | `sudo apt install python3-yaml` ou `python3 -m pip install --user pyyaml` |
+| Fedora / RHEL | `sudo dnf install python3-pyyaml` |
+| Arch | `sudo pacman -S python-yaml` |
+| macOS | `python3 -m pip install --user pyyaml` |
+| Windows | `py -3 -m pip install pyyaml` |
+
+Verificação: `python3 -c "import yaml"` (Linux/macOS) ou `py -3 -c "import yaml"` (Windows).
+
+> **PEP 668:** em distribuições recentes (Ubuntu 24.04, Debian 12+, Fedora) o `pip install` global pode ser recusado. Use o pacote do sistema, `--user` ou um ambiente virtual (`venv`).
 
 ## Instalação
 
-Após instalar o Mira em uma nova pasta, abra o OpenCode e cole este prompt na primeira mensagem:
+### Opção A — via prompt no OpenCode (recomendada)
+
+Abra o OpenCode na raiz do projeto onde o Mira foi instalado (após `npx mira install`) e cole este prompt:
 
 ```text
-Execute o procedimento descrito em https://github.com/JosehRoberto/menu-mira-opencode para instalar os comandos Mira no menu do OpenCode com segurança, preservando qualquer configuração existente do OpenCode.
+Instale os comandos Mira no menu do OpenCode usando a versão fixada v1.0.0 do repositório https://github.com/JosehRoberto/menu-mira-opencode.
+
+Procedimento:
+1. Clone a versão fixada em uma pasta temporária do sistema:
+   git clone --branch v1.0.0 --depth 1 https://github.com/JosehRoberto/menu-mira-opencode.git
+2. Garanta Python 3 e o módulo pyyaml no ambiente atual.
+3. Na raiz do meu projeto, execute o instalador não interativo:
+   - Linux/macOS: bash <pasta-clonada>/bin/install.sh --yes
+   - Windows: powershell -ExecutionPolicy Bypass -File <pasta-clonada>\bin\install.ps1 --yes
+4. Não apague opencode.json nem opencode.jsonc; crie backup se existirem.
+5. Ao final, informe o resumo (criados, atualizados, ignorados).
 ```
 
-O agente acessará este README via `webfetch` e executará o procedimento descrito aqui.
+O agente executa passos determinísticos: obtém a **versão fixada**, roda o instalador **não interativo** e reporta o resumo.
 
-> **Compatibilidade:** os scripts usam Python 3 e Bash (Linux/macOS). Quando executados via prompt no OpenCode, o agente de IA traduz os comandos para o shell do seu sistema automaticamente (PowerShell no Windows, zsh no macOS, bash no Linux). Para execução manual no Windows, use Git Bash ou WSL.
+### Opção B — execução manual
 
-## O que mudou nesta versão
-
-Esta atualização substitui os scripts anteriores por versões mais seguras e corrige a leitura da `description` dos `SKILL.md`.
-
-- Não removem `opencode.json` nem `opencode.jsonc` automaticamente.
-- Criam backup quando o usuário desejar preservar arquivos existentes.
-- Pedem confirmação antes de gerar, atualizar ou remover comandos.
-- Evitam sobrescrever arquivos sem necessidade.
-- Extraem apenas o frontmatter inicial do `SKILL.md` antes de aplicar `PyYAML`.
-- Lidem corretamente com `description: >-` e com `---` que apareçam no corpo do arquivo.
-- Tratam melhor o caso em que já existe configuração local do OpenCode.
-
-## Instalação segura
-
-Use este script para uma instalação inicial mais segura. Ele cria os comandos Mira em `.opencode/commands/`, preserva a configuração existente do usuário e oferece backup quando encontrar `opencode.json` ou `opencode.jsonc`.
+Clone a versão fixada e execute o wrapper do seu sistema **dentro da raiz do projeto onde o Mira foi instalado**:
 
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
+git clone --branch v1.0.0 --depth 1 https://github.com/JosehRoberto/menu-mira-opencode.git /tmp/menu-mira-opencode
+```
 
-COMMANDS_DIR=".opencode/commands"
-SKILLS_ROOT=".agents/skills"
-BACKUP_DIR=".opencode/backups"
-TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
-CREATED_COUNT=0
-SKIPPED_COUNT=0
-UPDATED_COUNT=0
+**Linux / macOS:**
 
-echo "==> Instalação segura dos comandos Mira no OpenCode"
-echo
+```bash
+bash /tmp/menu-mira-opencode/bin/install.sh --yes
+```
 
-if [ ! -d "$SKILLS_ROOT" ]; then
-  echo "ERRO: diretório '$SKILLS_ROOT' não encontrado."
-  echo "Abra este script na raiz do projeto onde o Mira foi instalado."
-  exit 1
-fi
+**Windows 10/11 (PowerShell):**
 
-mkdir -p "$COMMANDS_DIR"
-mkdir -p "$BACKUP_DIR"
-
-backup_file() {
-  local file="$1"
-  if [ -f "$file" ]; then
-    local base
-    base="$(basename "$file")"
-    cp -p "$file" "$BACKUP_DIR/${base}.${TIMESTAMP}.bak"
-    echo "Backup criado: $BACKUP_DIR/${base}.${TIMESTAMP}.bak"
-  fi
-}
-
-confirm() {
-  local prompt="$1"
-  local response
-  read -r -p "$prompt [y/N]: " response
-  case "$response" in
-    y|Y|yes|YES|s|S|sim|SIM) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-extract_frontmatter() {
-  python3 - "$1" <<'PYEOF'
-import sys
-from pathlib import Path
-
-path = Path(sys.argv[1])
-text = path.read_text(encoding="utf-8")
-if not text.startswith("---"):
-    sys.exit(0)
-
-end = text.find("\n---", 3)
-if end == -1:
-    sys.exit(0)
-
-frontmatter = text[3:end]
-if frontmatter.startswith("\n"):
-    frontmatter = frontmatter[1:]
-print(frontmatter.rstrip("\n"))
-PYEOF
-}
-
-echo "Diretório de skills: $SKILLS_ROOT"
-echo "Diretório de comandos: $COMMANDS_DIR"
-echo
-
-if [ -f "opencode.json" ] || [ -f "opencode.jsonc" ]; then
-  echo "ATENÇÃO: foi encontrado arquivo de configuração do OpenCode neste projeto."
-  [ -f "opencode.json" ] && echo " - opencode.json"
-  [ -f "opencode.jsonc" ] && echo " - opencode.jsonc"
-  echo
-  echo "Esse arquivo NÃO será apagado."
-  echo "O OpenCode suporta comandos por arquivos .md e também por configuração JSON/JSONC."
-  echo "Apagar automaticamente pode remover configurações válidas do usuário."
-  echo
-  if confirm "Deseja criar backup desses arquivos agora?"; then
-    [ -f "opencode.json" ] && backup_file "opencode.json"
-    [ -f "opencode.jsonc" ] && backup_file "opencode.jsonc"
-  fi
-  echo
-fi
-
-if ! confirm "Deseja gerar os comandos Mira em '$COMMANDS_DIR'?"; then
-  echo "Operação cancelada pelo usuário."
-  exit 0
-fi
-
-for root in "$SKILLS_ROOT"; do
-  [ -d "$root" ] || continue
-
-  for skill_dir in "$root"/mira-*/ "$root"/mira/; do
-    [ -d "$skill_dir" ] || continue
-
-    skill_name="$(basename "$skill_dir")"
-    skill_file="$skill_dir/SKILL.md"
-    cmd_file="$COMMANDS_DIR/$skill_name.md"
-
-    if [ ! -f "$skill_file" ]; then
-      echo "Ignorado: $skill_name (sem SKILL.md)"
-      SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-      continue
-    fi
-
-    frontmatter="$(extract_frontmatter "$skill_file")"
-
-    tmp_file="$(mktemp)"
-    python3 - "$skill_name" "$frontmatter" "$tmp_file" <<'PYEOF'
-import sys
-from pathlib import Path
-import yaml
-
-skill_name = sys.argv[1]
-frontmatter = sys.argv[2]
-tmp_file = Path(sys.argv[3])
-
-desc = ""
-if frontmatter.strip():
-    try:
-        data = yaml.safe_load(frontmatter) or {}
-        if isinstance(data, dict):
-            desc = str(data.get("description", "")).strip()
-    except Exception:
-        pass
-
-if not desc:
-    desc = f"Comando Mira: {skill_name}"
-
-content = f"""---
-description: "{desc.replace('"', '\\"')}"
-agent: build
-
----
-
-# Comando `{skill_name}` do Mira
-
-Ative este comando para carregar o skill `{skill_name}` e siga as instruções do SKILL.md.
-
-/{skill_name}
-"""
-tmp_file.write_text(content, encoding="utf-8")
-PYEOF
-
-    if [ -f "$cmd_file" ]; then
-      if cmp -s "$tmp_file" "$cmd_file"; then
-        echo "Sem alteração: $skill_name"
-        SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-        rm -f "$tmp_file"
-        continue
-      fi
-
-      echo
-      echo "Comando existente detectado: $cmd_file"
-      if confirm "Deseja atualizar este comando mantendo backup?"; then
-        backup_file "$cmd_file"
-        mv "$tmp_file" "$cmd_file"
-        echo "Atualizado: $skill_name"
-        UPDATED_COUNT=$((UPDATED_COUNT + 1))
-      else
-        echo "Mantido sem alteração: $skill_name"
-        SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-        rm -f "$tmp_file"
-      fi
-    else
-      mv "$tmp_file" "$cmd_file"
-      echo "Criado: $skill_name"
-      CREATED_COUNT=$((CREATED_COUNT + 1))
-    fi
-  done
-done
-
-echo
-echo "Resumo:"
-echo " - Criados: $CREATED_COUNT"
-echo " - Atualizados: $UPDATED_COUNT"
-echo " - Ignorados: $SKIPPED_COUNT"
-echo
-echo "Concluído com segurança."
-echo "Feche e reabra o OpenCode para recarregar os comandos."
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\caminho\menu-mira-opencode\bin\install.ps1 --yes
 ```
 
 Depois feche e reabra o OpenCode.
 
-## Atualização segura
+## Atualização
 
-Quando o Mira for atualizado com novos skills, abra o OpenCode e cole este prompt:
+Quando o Mira for atualizado com novos skills (após `npx mira update`), sincronize os comandos (cria novos, atualiza alterados com backup e remove órfãos com confirmação):
 
-```text
-Sincronize os comandos Mira no menu do OpenCode conforme o procedimento seguro em https://github.com/JosehRoberto/menu-mira-opencode, preservando comandos existentes, criando backups e pedindo confirmação antes de remover comandos órfãos.
-```
-
-O script abaixo cria comandos novos, atualiza comandos alterados com backup, preserva `opencode.json` e pergunta antes de remover comandos órfãos.
+**Linux / macOS:**
 
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-COMMANDS_DIR=".opencode/commands"
-SKILLS_ROOT=".agents/skills"
-BACKUP_DIR=".opencode/backups"
-TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
-CREATED_COUNT=0
-UPDATED_COUNT=0
-REMOVED_COUNT=0
-SKIPPED_COUNT=0
-
-if [ ! -d "$SKILLS_ROOT" ]; then
-  echo "ERRO: diretório '$SKILLS_ROOT' não encontrado."
-  echo "Abra este script na raiz do projeto onde o Mira foi instalado."
-  exit 1
-fi
-
-mkdir -p "$COMMANDS_DIR"
-mkdir -p "$BACKUP_DIR"
-
-backup_file() {
-  local file="$1"
-  if [ -f "$file" ]; then
-    local base
-    base="$(basename "$file")"
-    cp -p "$file" "$BACKUP_DIR/${base}.${TIMESTAMP}.bak"
-    echo "Backup criado: $BACKUP_DIR/${base}.${TIMESTAMP}.bak"
-  fi
-}
-
-confirm() {
-  local prompt="$1"
-  local response
-  read -r -p "$prompt [y/N]: " response
-  case "$response" in
-    y|Y|yes|YES|s|S|sim|SIM) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-extract_frontmatter() {
-  python3 - "$1" <<'PYEOF'
-import sys
-from pathlib import Path
-
-path = Path(sys.argv[1])
-text = path.read_text(encoding="utf-8")
-if not text.startswith("---"):
-    sys.exit(0)
-
-end = text.find("\n---", 3)
-if end == -1:
-    sys.exit(0)
-
-frontmatter = text[3:end]
-if frontmatter.startswith("\n"):
-    frontmatter = frontmatter[1:]
-print(frontmatter.rstrip("\n"))
-PYEOF
-}
-
-echo "==> Sincronização segura dos comandos Mira"
-echo
-
-if [ -f "opencode.json" ] || [ -f "opencode.jsonc" ]; then
-  echo "Configuração existente do OpenCode detectada neste projeto."
-  [ -f "opencode.json" ] && echo " - opencode.json"
-  [ -f "opencode.jsonc" ] && echo " - opencode.jsonc"
-  echo "Esses arquivos serão preservados."
-  echo
-fi
-
-for root in "$SKILLS_ROOT"; do
-  [ -d "$root" ] || continue
-
-  for skill_dir in "$root"/mira-*/ "$root"/mira/; do
-    [ -d "$skill_dir" ] || continue
-
-    skill_name="$(basename "$skill_dir")"
-    skill_file="$skill_dir/SKILL.md"
-    cmd_file="$COMMANDS_DIR/$skill_name.md"
-
-    if [ ! -f "$skill_file" ]; then
-      echo "Ignorado: $skill_name (sem SKILL.md)"
-      SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-      continue
-    fi
-
-    frontmatter="$(extract_frontmatter "$skill_file")"
-
-    tmp_file="$(mktemp)"
-    python3 - "$skill_name" "$frontmatter" "$tmp_file" <<'PYEOF'
-import sys
-from pathlib import Path
-import yaml
-
-skill_name = sys.argv[1]
-frontmatter = sys.argv[2]
-tmp_file = Path(sys.argv[3])
-
-desc = ""
-if frontmatter.strip():
-    try:
-        data = yaml.safe_load(frontmatter) or {}
-        if isinstance(data, dict):
-            desc = str(data.get("description", "")).strip()
-    except Exception:
-        pass
-
-if not desc:
-    desc = f"Comando Mira: {skill_name}"
-
-content = f"""---
-description: "{desc.replace('"', '\\"')}"
-agent: build
-
----
-
-# Comando `{skill_name}` do Mira
-
-Ative este comando para carregar o skill `{skill_name}` e siga as instruções do SKILL.md.
-
-/{skill_name}
-"""
-tmp_file.write_text(content, encoding="utf-8")
-PYEOF
-
-    if [ -f "$cmd_file" ]; then
-      if cmp -s "$tmp_file" "$cmd_file"; then
-        echo "Sem alteração: $skill_name"
-        SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-        rm -f "$tmp_file"
-      else
-        echo
-        echo "Comando alterado detectado: $cmd_file"
-        if confirm "Deseja atualizar este comando mantendo backup?"; then
-          backup_file "$cmd_file"
-          mv "$tmp_file" "$cmd_file"
-          echo "Atualizado: $skill_name"
-          UPDATED_COUNT=$((UPDATED_COUNT + 1))
-        else
-          echo "Mantido sem alteração: $skill_name"
-          SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-          rm -f "$tmp_file"
-        fi
-      fi
-    else
-      mv "$tmp_file" "$cmd_file"
-      echo "Criado: $skill_name"
-      CREATED_COUNT=$((CREATED_COUNT + 1))
-    fi
-  done
-done
-
-for cmd_file in "$COMMANDS_DIR"/mira*.md "$COMMANDS_DIR"/mira.md; do
-  [ -f "$cmd_file" ] || continue
-  skill_name="$(basename "$cmd_file" .md)"
-
-  if [ ! -d "$SKILLS_ROOT/$skill_name" ]; then
-    echo
-    echo "Comando órfão detectado: $skill_name"
-    if confirm "Deseja remover este comando órfão mantendo backup?"; then
-      backup_file "$cmd_file"
-      rm -f "$cmd_file"
-      echo "Removido: $skill_name"
-      REMOVED_COUNT=$((REMOVED_COUNT + 1))
-    else
-      echo "Preservado: $skill_name"
-      SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-    fi
-  fi
-done
-
-echo
-echo "Resumo:"
-echo " - Criados: $CREATED_COUNT"
-echo " - Atualizados: $UPDATED_COUNT"
-echo " - Removidos: $REMOVED_COUNT"
-echo " - Ignorados: $SKIPPED_COUNT"
-echo
-echo "Sincronização concluída com segurança."
-echo "Feche e reabra o OpenCode após alterações em .opencode/commands/."
+bash /tmp/menu-mira-opencode/bin/sync.sh --yes
 ```
+
+**Windows 10/11 (PowerShell):**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\caminho\menu-mira-opencode\bin\sync.ps1 --yes
+```
+
+Ou use o núcleo direto, em qualquer sistema:
+
+```bash
+python3 menu-mira.py install --yes
+python3 menu-mira.py sync --yes
+```
+
+> **Migração da versão anterior (0.x):** o formato dos `.md` gerados foi padronizado (serialização com `json.dumps` e frontmatter alinhado ao `menu-antares-opencode`). O primeiro `sync` pode propor atualização dos comandos já existentes; um backup é criado automaticamente antes de sobrescrever.
+
+## Arquitetura
+
+| Arquivo | Papel |
+|---|---|
+| `menu-mira.py` | Núcleo único, portátil. Contém toda a lógica. Subcomandos `install` e `sync` |
+| `bin/install.sh`, `bin/sync.sh` | Wrappers finos para Linux/macOS (bash 3.2+) |
+| `bin/install.ps1`, `bin/sync.ps1` | Wrappers finos para Windows (PowerShell) |
+
+Os wrappers apenas detectam o Python 3 (`python3` → `python` → `py -3`) e chamam o núcleo. Toda a lógica vive em `menu-mira.py`, garantindo o mesmo comportamento em todos os sistemas.
+
+## Flags do `menu-mira.py`
+
+| Flag | Descrição |
+|---|---|
+| `--yes` / `-y` | Não interativo: responde "sim" a todas as confirmações |
+| `--dry-run` | Mostra o que seria feito, sem alterar arquivos |
+| `--backup-dir DIR` | Diretório de backups (padrão: `.opencode/backups`) |
+| `--keep-gitignore` | Não altera o `.gitignore` |
+| `--skills-root DIR` | Raiz dos skills (padrão: `.agents/skills`) |
+| `--commands-dir DIR` | Diretório de comandos (padrão: `.opencode/commands`) |
+
+## O que este repositório faz de diferente
+
+- Cobre **`mira-*`** (e o skill `mira` sem sufixo, se existir).
+- Ignora `_shared/` (não possui `SKILL.md`).
+- Marca `.opencode/` no `.gitignore` (de forma idempotente), tratando os comandos como artefato local regenerável — não versionado.
+- Lê a `description` do frontmatter com **PyYAML**, não com `grep`. Isso é obrigatório porque vários skills do Mira usam `description: >-` (bloco multi-linha); um `grep '^description:'` capturaria apenas o `>-` e geraria um comando com descrição vazia.
+- Serializa a descrição com `json.dumps`, produzindo um escalar YAML duplamente citado válido mesmo quando o texto contém aspas, dois-pontos, `+` ou `&`.
+- Não remove `opencode.json` nem `opencode.jsonc` automaticamente.
+- Cria backup em `.opencode/backups/` quando o usuário desejar preservar arquivos existentes.
+- Pede confirmação antes de gerar, atualizar ou remover comandos; em modo `--yes` age sem intervenção.
+- Evita sobrescrever arquivos sem necessidade (compara conteúdo antes de atualizar).
+
+## Matriz de compatibilidade
+
+| Plataforma | Wrapper | Requisitos | Observações |
+|---|---|---|---|
+| Ubuntu / Debian / Fedora / Mint | `bin/*.sh` | bash, python3, pyyaml | PEP 668 no pyyaml |
+| macOS | `bin/*.sh` | python3 (CLT/Homebrew), pyyaml | bash 3.2; PEP 668 |
+| Windows 10/11 | `bin/*.ps1` | Python 3, pyyaml | `-ExecutionPolicy Bypass`, encoding UTF-8 |
 
 ## Comportamento esperado
 
@@ -434,17 +151,17 @@ Além disso, existe relato de atraso para os comandos aparecerem após alteraç�
 
 ## Orientações de uso
 
-### Quando usar o script de instalação
+### Quando usar `install`
 
-Use o script de **Instalação segura** quando:
+Use `install` quando:
 
 - o projeto acabou de receber `npx mira install`;
-- ainda não existem comandos Mira em `.opencode/commands/`;
+- ainda não existem comandos `mira-*` em `.opencode/commands/`;
 - você quer preservar qualquer configuração local já existente do OpenCode.
 
-### Quando usar o script de sincronização
+### Quando usar `sync`
 
-Use o script de **Atualização segura** quando:
+Use `sync` quando:
 
 - você executou `npx mira update`;
 - novas skills Mira foram adicionadas, removidas ou alteradas;
@@ -452,23 +169,33 @@ Use o script de **Atualização segura** quando:
 
 ### Sobre `opencode.json` e `opencode.jsonc`
 
-Se já existir `opencode.json` ou `opencode.jsonc`, a recomendação desta versão é **preservar esses arquivos**.
+Se já existir `opencode.json` ou `opencode.jsonc`, a recomendação é **preservar esses arquivos**.
 
 - Não apagar automaticamente.
 - Fazer backup antes de qualquer mudança manual.
-- Usar `.opencode/commands/*.md` para os comandos Mira.
+- Usar `.opencode/commands/*.md` para os comandos.
 - Revisar manualmente o conteúdo de `opencode.json` apenas se houver suspeita de conflito de configuração.
 
-Essa mudança existe porque `opencode.json` e `opencode.jsonc` são formatos válidos de configuração do OpenCode, e apagar esses arquivos sem confirmação pode remover configurações legítimas do usuário.
+### Sobre versionamento de `.opencode/`
+
+Os comandos em `.opencode/commands/*.md` são **artefato local regenerável** (a fonte de verdade é `.agents/skills/*/SKILL.md`), por isso o padrão deste repositório é **não versionar** `.opencode/`:
+
+- Os scripts adicionam `.opencode/` ao `.gitignore` automaticamente, sem duplicar linha.
+- Quem clonar o projeto gera os comandos rodando a instalação uma vez.
+- O comando `sync` mantém os comandos em dia após updates do Mira.
+
+Se preferir versionar os comandos, use `--keep-gitignore` (para não tocar no `.gitignore`) e versiona apenas o que quiser, ignorando ao menos `.opencode/backups/`.
 
 ## Notas técnicas
 
-- O OpenCode suporta configuração por `opencode.json` e `opencode.jsonc`, então esses arquivos devem ser preservados por padrão.
-- Os scripts desta versão criam backup em `.opencode/backups/` antes de atualizar comandos existentes.
-- A remoção de comandos órfãos na sincronização exige confirmação explícita do usuário.
-- `PyYAML` é usado para ler apenas o frontmatter inicial de cada `SKILL.md`, o que evita erros quando o corpo do arquivo contém outro `---`.
+- O OpenCode reconhece comandos de projeto em `.opencode/commands/*.md` (também aceita `.opencode/command/`). Este repositório usa o plural, alinhado aos repositórios `menu-antares-opencode` e `menu-reversa-opencode`.
+- O OpenCode **carrega** os skills de `.agents/skills/`, mas o **menu `/` lista comandos, não skills**. Por isso é necessário gerar um arquivo de comando por skill.
+- `PyYAML` é usado para ler apenas o frontmatter inicial de cada `SKILL.md`, o que trata corretamente `description: >-` e evita erro quando o corpo do arquivo contém outro `---`.
+- A descrição é serializada com `json.dumps`, garantindo um escalar YAML citado válido.
 - `skills.paths` não é necessário neste fluxo.
-- `agent: build` é usado como agente padrão neste repositório; se houver um agente específico desejado, ajuste o frontmatter conforme necessário.
+- A entrada `.opencode/` no `.gitignore` é verificada antes de escrever (idempotente) e preserva o restante do arquivo.
+- `agent: build` é usado como agente padrão; ajuste o frontmatter gerado se preferir outro agente.
+- Comandos órfãos (skill removido) só são excluídos no `sync` e com confirmação explícita.
 
 ### Bugs e observações conhecidas
 
@@ -476,6 +203,41 @@ Essa mudança existe porque `opencode.json` e `opencode.jsonc` são formatos vá
 - [#8017](https://github.com/anomalyco/opencode/issues/8017): atraso para comandos aparecerem após alterações.
 - [#18987](https://github.com/anomalyco/opencode/issues/18987): presença de `opencode.json` pode interferir em alguns cenários; por isso a recomendação atual é preservar, fazer backup e revisar manualmente em vez de apagar automaticamente.
 
+## Solução de problemas
+
+### `pip` recusa a instalação do pyyaml (PEP 668)
+
+Use o pacote do sistema (`python3-yaml` no apt, `python3-pyyaml` no dnf), `--user` (`python3 -m pip install --user pyyaml`) ou um `venv`.
+
+### macOS: `python3` não encontrado
+
+Instale as Command Line Tools (`xcode-select --install`) ou o Python via Homebrew (`brew install python`).
+
+### Windows: script bloqueado pela ExecutionPolicy
+
+Execute com bypass explícito:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\caminho\menu-mira-opencode\bin\install.ps1 --yes
+```
+
+### Acentuação/emoji estranhos no console do Windows
+
+O núcleo grava os arquivos em UTF-8 e reconfigura a saída para UTF-8. Se o console ainda exibir caracteres estranhos, rode `chcp 65001` antes.
+
+### `ERRO: diretório '.agents/skills' não encontrado`
+
+Você não está na raiz do projeto onde o Mira foi instalado. Rode o wrapper a partir dessa pasta.
+
+## Legado (script shell, v0)
+
+A versão anterior baseada em script shell embutido no README continua disponível no histórico:
+
+- README histórico: <https://github.com/JosehRoberto/menu-mira-opencode/blob/70ba21b/README.md>
+- Prompt legado: `Execute o procedimento descrito em https://github.com/JosehRoberto/menu-mira-opencode/blob/70ba21b/README.md ...`
+
+O fluxo legado exige Git Bash ou WSL no Windows e não é determinístico entre sistemas; prefira as opções A ou B acima.
+
 ## Licença
 
-MIT 
+MIT
